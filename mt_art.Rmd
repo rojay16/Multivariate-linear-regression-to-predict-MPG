@@ -1,0 +1,102 @@
+---
+title: "Factors that influence MPG"
+date: "March 11, 2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Automatic vs manual
+
+Executive Summary: In this article we compare the MPG for cars with automatic and manual transmission. We also adjust for weight, engine displacement and hp as well as consider validity of the results through various diagnostics.
+
+Taking a cursory glance, from a list of cars, with several attributes we have box plot for the mpg of the car by their transmission. It seems that cars with manual transmissions in general seem to have a higher mpg. The box plot in question can be seen in Figure 1 of the Appendix.
+
+```{r, echo=F}
+trans_<-factor(mtcars$am,labels = c("auto","man"))
+amavg<-lm(mpg~trans_,data=mtcars)
+summary(amavg)$coefficients
+```
+
+We can quantify this by finding the average mpg for each transmission. We fit a linear regression to the factor variables automatic and manual and see that the average mpg for automatic transmission is  17.17 mpg and the the average mpg for manual is 24.41 mpg.
+
+However there could be confounding variables that are related to whether a car is manual and automatic hence we will look at how these affect the mpg as well. We look at the weight of the car, hp and the engine displacement.
+
+First we look at the impact of weight, by fitting two linear regressions to the data depending on whether it is a manual or automatic transmission. We subtract the mean weight from the weight, as cars do not have weights close to 0.
+
+```{r, echo=F}
+wt_mean_dev= (mtcars$wt-mean(mtcars$wt))
+amavg_wt<-lm(mpg~factor(am)*I(wt-mean(wt)),data=mtcars)
+summary(amavg_wt)$coefficients
+```
+
+
+Interestingly we see that around the average weight (3.27 tons) is at odds with our first graph that depending on how we adjust for weight, either transmission can give better mileage. Around the average, the regression line for automatic transition predicts a better mileage than manual, as well as if we increase the weight of the vehicle. If we decrease the weight of the vehicle it would appear that the manual transmission gives better mileage. This is also reflected in the actual coefficients we have calculated. We are inclined to believe the accuracy of this regression as the p-values for the slope coefficients, are far bellow 0.05, which indicates it is highly unlikely that the mpg is not correlated with weight (where the coefficients would be 0). The low p-values also tell us that the difference in regression lines for automatic and manual is highly likely (as the beta coefficients for the manual factor are added to the coefficients of the automatic factor to get the regression line for the manual factor). The graph showing the two linear regressions for each transmission can be seen in Figure 2 of the Appendix. We also believe the data we used was accurate based off our standardized residual plots, which can be seen in Figure 3 of the Appendix (where we don't see any point with a significantly high standardized residual. As well the R-squared is 0.833 which suggests that most of the variability in the data can be explained by the linear model. 
+
+
+Now we look at the relation between engine displacement, transmission and mpg by again doing a linear regression.
+
+```{r, echo=F}
+disp_mean_dev= 0.01*(mtcars$disp-mean(mtcars$disp))
+trans_<-factor(mtcars$am,labels = c("auto","man"))
+amavg_disp<-lm(mpg~trans_*disp_mean_dev,data=mtcars)
+summary(amavg_disp)$coefficients
+```
+
+The slope coefficients represent the change in mpg per 100 change from the mean displacement (230). We see a similar relationship between the displacement and mpg as with weight and mpg, where if you have a manual transmission the mpg is better if you are decreasing the displacement from the mean displacement, and the automatic transmission provides better mpg for displacements higher than average. The regressions characterizing the manual and automatic transmissions can be seen in Figure 4 of the appendix. We see that there are no outliers by looking at the standardized residuals in Figure 5 of the Appendix.
+
+Now we look at the relation between hp, transmission and mpg by again doing a linear regression.
+
+```{r, echo=F}
+trans_<-factor(mtcars$am,labels = c("auto","man"))
+hp_mean_dev= 0.02*(mtcars$hp-mean(mtcars$hp))
+amavg_hp<-lm(mpg~trans_*I(hp_mean_dev),data=mtcars)
+summary(amavg_hp)$coefficients
+```
+
+The regression looks at how the mpg changes for every 50 hp change. Unlike the previous two regressions there is not significant difference between the slopes of the regression for automatic and manual. For both transmissions the mpg decreases as mpg increases. As the automatic has a lower mpg at the average hp, and both the slopes are the same, this shows that forthe entire range of hp, we would expect the the mpg of a manual transmission to be higher than automatic. We can see the regressions in Figure 6 in the Appendix
+
+Thus this article shows when considering how the transmission affects mpg, other factors like weight and displacement should be taken into account.
+
+## Appendix
+
+```{r, echo=F,fig.width=5,fig.height=2.5}
+g<-ggplot(data=mtcars,aes(factor(am,labels=c("auto","manual")),mpg))+geom_boxplot(aes(fill=factor(am)),show.legend = F)+labs(title="Figure 1: mpg by transmission",x="transmission")
+g
+```
+
+```{r,echo=F,fig.width=5,fig.height=2.5 }
+a<-mutate(mtcars,wt=wt-mean(wt))
+g<-ggplot(a,aes(wt,mpg, colour=factor(am,labels = c("automatic","manual"))))+geom_point()+geom_smooth(method="lm")+xlab("deviation from avg weight(tons)")+ggtitle("Figure 2: mpg for automatic vs manual\n adjusted for weight")+guides(colour= guide_legend("Transmission"))
+g
+```
+
+
+```{r,echo=F,fig.width=5,fig.height=2.5 }
+a=data.frame(str=rstandard(amavg_wt),reg=1:length(rstandard(amavg_wt)))
+g<-ggplot(a,aes(reg,str))+geom_point()+xlab("points")+ylab("standardized residual")+ggtitle("Figure3: Standardized residual plot for wt regression")
+g
+```
+
+```{r,echo=F,fig.width=5,fig.height=2.5 }
+a<-mutate(mtcars,disp=disp-mean(disp))
+g<-ggplot(a,aes(disp,mpg, colour=factor(am,labels = c("automatic","manual"))))+geom_point()+geom_smooth(method="lm")+xlab("deviation from avg disp")+ggtitle("Figure 4: mpg for automatic vs manual\n adjusted for disp")+guides(colour= guide_legend("Transmission"))
+g
+```
+
+```{r,echo=F,fig.width=5,fig.height=2.5 }
+a=data.frame(str=rstandard(amavg_disp),reg=1:length(rstandard(amavg_disp)))
+g<-ggplot(a,aes(reg,str))+geom_point()+xlab("points")+ylab("standardized residual")+ggtitle("Figure 5: Standardized residual plot for disp regression")
+g
+```
+
+```{r,echo=F,fig.width=5,fig.height=2.5 }
+a<-mutate(mtcars,hp=hp-mean(hp))
+g<-ggplot(a,aes(hp,mpg, colour=factor(am,labels = c("automatic","manual"))))+geom_point()+geom_smooth(method="lm")+xlab("deviation from avg hp")+ggtitle("Figure 6: mpg for automatic vs manual\n adjusted for hp")+guides(colour= guide_legend("Transmission"))
+g
+```
